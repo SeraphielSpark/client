@@ -21,12 +21,12 @@
         /* --- Global Resets & Body Styles for IFRAME --- */
         * { box-sizing: border-box; margin: 0; padding: 0; line-height: 1.5; font-family: 'Inter', sans-serif; }
         body {
-            background-color: var(--bg-card); /* Ensure white background inside frame */
+            background-color: var(--bg-card);
             color: var(--text-main);
             padding: 1.5rem; 
             min-height: 100vh;
             overflow-x: hidden;
-            overflow-y: hidden; /* Prevent internal scrollbars */
+            overflow-y: hidden;
             position: relative;
         }
         
@@ -66,9 +66,13 @@
         #btn-lint:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
 
         /* --- Status & Loading (Customized to integrate into the page) --- */
-        /* NOTE: The external script writes directly to #status. We hide it and use its content to feed the overlay. */
+        /* IMPORTANT: This ID must remain for the Pyodide script to find it. */
         #status { display:none; } 
-        
+        #status-display { 
+            margin-top: 1rem; padding: 0.5rem 1rem; background: #fff3e0; border: 1px solid #ffcc80; 
+            border-radius: 0.375rem; font-size: 0.875rem; color: #a55a00; font-weight: 500; 
+        }
+
         /* --- Linter Output Styling --- */
         #output-wrap { margin-top: 1.5rem; }
         #output { background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; font-size: 0.85rem; }
@@ -80,7 +84,7 @@
             inset: 0; 
             background-color: rgba(255, 255, 255, 0.95);
             z-index: 1000;
-            display: flex;
+            display: none; 
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -108,7 +112,7 @@
         }
         
         /* Utility to hide the content on load */
-        #content-wrapper { transition: opacity 0.5s ease; opacity: 0; }
+        #content-wrapper { transition: opacity 0.5s ease; opacity: 1; }
 
         /* ANSI colors for Linter output (must exist for renderLintMessages to look right) */
         .ansi-yellow { color: #d97706; }
@@ -131,6 +135,8 @@
         </header>
 
         <div id="status">Loading Pyodide…</div> 
+        
+        <div id="status-display">Loading Pyodide…</div>
 
         <div class="main-content-card">
             <label for="query">Query</label>
@@ -165,12 +171,12 @@
     <script src="script.js"></script>
     
     <script>
-        // NOTE: Base path check should match the domain of the host page
         const PARENT_ORIGIN = window.location.origin; 
         
         const loader = document.getElementById('loading-overlay');
         const loadingText = document.getElementById('loading-text');
         const contentWrapper = document.getElementById('content-wrapper');
+        const statusDisplay = document.getElementById('status-display');
 
         // --- Cross-Origin Height Communication ---
         function sendHeight() {
@@ -192,38 +198,43 @@
         
         window.appendStatus = function(msg) {
             // 1. Update the visual status text
-            loadingText.textContent = msg.replace(/\u001b\[.*?m/g, ''); // Strip ANSI codes for cleaner display
-            
-            // 2. Check if loading is complete (based on client's known output)
-            if (msg.includes('Done') || msg.includes('ready') || msg.includes('Ready')) {
+            const cleanMsg = msg.replace(/\u001b\[.*?m/g, ''); // Strip ANSI codes
+            if (statusDisplay) statusDisplay.textContent = cleanMsg;
+
+            // 2. Control the full-screen loader state
+            if (cleanMsg.includes('Done') || cleanMsg.includes('ready') || cleanMsg.includes('Ready')) {
                 // Fade out the loader and show content
                 loader.style.opacity = '0';
                 contentWrapper.style.opacity = '1';
 
-                // Re-enable interactions and hide the loader after transition
                 setTimeout(() => {
                     loader.style.display = 'none';
-                    document.body.style.overflow = ''; // Re-enable scrolling if needed
-                    sendHeight(); // Final height update after hiding loader
+                    document.body.style.overflow = '';
+                    sendHeight();
                 }, 500);
+            } else {
+                // Show loader if Pyodide is actively loading
+                loader.style.display = 'flex';
+                loader.style.opacity = '1';
+                contentWrapper.style.opacity = '0';
             }
 
-            // 3. Re-trigger height update when status text changes (for loading phase)
-            // Call the original function
+            // 3. Call the original function and re-trigger height update 
             originalAppendStatus(msg);
             setTimeout(sendHeight, 50); 
         };
         
         // --- Initial Setup and DOM Observer ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Initial state update (Hides the content until Pyodide is ready)
+            // Initial state setup
+            contentWrapper.style.opacity = '0';
             document.body.style.overflow = 'hidden';
-            loadingText.textContent = "Loading Pyodide runtime...";
-            
-            // 1. Send height immediately on initialization (sends initial small height)
+            loader.style.display = 'flex'; 
+
+            // 1. Send height immediately on initialization
             window.addEventListener('load', sendHeight);
             
-            // 2. Observe DOM changes (Crucial for when Linter populates tables/messages)
+            // 2. Observe DOM changes (Crucial for when the output dynamically appears)
             const observer = new MutationObserver(sendHeight);
             observer.observe(document.body, { attributes: true, childList: true, subtree: true });
         });
