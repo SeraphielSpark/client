@@ -1,43 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>search-query linter</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <title>search-query Linter</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    
+    <style>
+        /* --- CSS Variables (Ensure consistency with Host) --- */
+        :root {
+            --primary: #4f46e5;       /* Indigo */
+            --primary-dark: #3f35c5;
+            --bg-card: #ffffff;
+            --border-color: #e5e7eb;  /* Gray-200 */
+            --text-main: #1f2937;     /* Dark Gray */
+            --text-secondary: #6b7280; /* Medium Gray */
+        }
+
+        /* --- Global Resets & Body Styles for IFRAME --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; line-height: 1.5; font-family: 'Inter', sans-serif; }
+        body {
+            background-color: var(--bg-card); /* Ensure white background inside frame */
+            color: var(--text-main);
+            padding: 1.5rem; 
+            min-height: 100vh;
+            overflow-x: hidden;
+            overflow-y: hidden; /* Prevent internal scrollbars */
+            position: relative;
+        }
+        
+        /* --- Layout & Typography --- */
+        header h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 0.25rem; }
+        header p { color: var(--text-secondary); margin-top: 0; font-size: 0.95rem; }
+        
+        .main-content-card {
+            margin-top: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Form Elements --- */
+        label { display: block; margin-top: 1.25rem; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.875rem; }
+        textarea, select { 
+            display: block; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); 
+            border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07); 
+            transition: border-color 0.2s, box-shadow 0.2s; color: var(--text-main);
+        }
+        textarea:focus, select:focus { 
+            border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); outline: none; 
+        }
+
+        /* --- Button --- */
+        #btn-lint {
+            width: 100%; padding: 0.75rem 1rem; border: none; border-radius: 0.5rem; 
+            font-weight: 600; color: white; background-color: var(--primary); 
+            cursor: pointer; transition: background-color 0.2s; 
+            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.4);
+            margin-top: 1.5rem;
+        }
+        #btn-lint:hover:not(:disabled) { background-color: var(--primary-dark); }
+        #btn-lint:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+
+        /* --- Status & Loading (Customized to integrate into the page) --- */
+        /* NOTE: The external script writes directly to #status. We hide it and use its content to feed the overlay. */
+        #status { display:none; } 
+        
+        /* --- Linter Output Styling --- */
+        #output-wrap { margin-top: 1.5rem; }
+        #output { background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; font-size: 0.85rem; }
+        #lint-view, #output-wrap { border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; background: var(--bg-card); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); }
+
+        /* --- LOADING OVERLAY STYLES --- */
+        #loading-overlay {
+            position: fixed;
+            inset: 0; 
+            background-color: rgba(255, 255, 255, 0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+            opacity: 1;
+        }
+        .loader {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        #loading-text {
+            font-size: 1.1rem;
+            color: var(--text-main);
+            font-weight: 500;
+            text-align: center;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Utility to hide the content on load */
+        #content-wrapper { transition: opacity 0.5s ease; opacity: 0; }
+
+        /* ANSI colors for Linter output (must exist for renderLintMessages to look right) */
+        .ansi-yellow { color: #d97706; }
+        .ansi-red { color: #dc2626; }
+        .ansi-green { color: #10b981; }
+        
+    </style>
 </head>
 <body>
-  <header>
-    <h1>search-query linter</h1>
-    <p>Paste a query, select a platform, and run the linter in your browser.</p>
-  </header>
 
-  <div id="status">Loading Pyodide…</div>
+    <div id="loading-overlay">
+        <div class="loader"></div>
+        <div id="loading-text">Initializing Pyodide...</div>
+    </div>
+    
+    <div id="content-wrapper">
+        <header>
+            <h1>search-query linter</h1>
+            <p>Paste a query, select a platform, and run the linter in your browser.</p>
+        </header>
 
-  <label for="query">Query</label>
-  <textarea id="query">(TI=(platform* OR "digital work") AND PY=2020-2025)</textarea>
+        <div id="status">Loading Pyodide…</div> 
 
-  <label for="platform">Platform</label>
-  <select id="platform">
-    <option value="wos">wos</option>
-    <option value="pubmed">pubmed</option>
-    <option value="ebscohost">ebscohost</option>
-    <option value="scopus">scopus</option>
-  </select>
+        <div class="main-content-card">
+            <label for="query">Query</label>
+            <textarea id="query">(TI=(platform* OR "digital work") AND PY=2020-2025)</textarea>
 
-  <div class="row">
-    <button id="btn-lint" disabled>Lint</button>
-  </div>
+            <label for="platform">Platform</label>
+            <select id="platform">
+                <option value="wos">WoS</option>
+                <option value="pubmed">PubMed</option>
+                <option value="ebscohost">EBSCOhost</option>
+                <option value="scopus">Scopus</option>
+            </select>
 
-  <details id="output-wrap">
-    <summary>Output</summary>
-    <pre id="output"></pre>
-  </details>
+            <div class="row">
+                <button id="btn-lint" disabled>Lint</button>
+            </div>
+        </div>
 
-  <h2 id="messages-title" style="display:none;">Messages</h2>
-  <div id="lint-view" style="display:none;"></div>
+        <div style="margin-top: 1.5rem;">
+            
+            <details id="output-wrap" style="margin-bottom: 1rem;">
+                <summary style="font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 0.5rem 0;">Raw Linter Output</summary>
+                <pre id="output"></pre>
+            </details>
 
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
-  <script src="script.js"></script>
+            <h2 id="messages-title" style="display:none; font-size: 1.25rem; font-weight: 600; margin-top: 1rem;">Messages</h2>
+            <div id="lint-view" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+    <script src="script.js"></script>
+    
+    <script>
+        // NOTE: Base path check should match the domain of the host page
+        const PARENT_ORIGIN = window.location.origin; 
+        
+        const loader = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const contentWrapper = document.getElementById('content-wrapper');
+
+        // --- Cross-Origin Height Communication ---
+        function sendHeight() {
+            const height = document.body.scrollHeight;
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'setHeight',
+                    height: height
+                }, PARENT_ORIGIN);
+            }
+        }
+        
+        // --- Pyodide Status Hook and Loader Control ---
+        
+        // Save original appendStatus function from script.js (if it was defined globally)
+        const originalAppendStatus = window.appendStatus || function(msg) { 
+            console.log("Status Hook (Original):", msg); 
+        };
+        
+        window.appendStatus = function(msg) {
+            // 1. Update the visual status text
+            loadingText.textContent = msg.replace(/\u001b\[.*?m/g, ''); // Strip ANSI codes for cleaner display
+            
+            // 2. Check if loading is complete (based on client's known output)
+            if (msg.includes('Done') || msg.includes('ready') || msg.includes('Ready')) {
+                // Fade out the loader and show content
+                loader.style.opacity = '0';
+                contentWrapper.style.opacity = '1';
+
+                // Re-enable interactions and hide the loader after transition
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    document.body.style.overflow = ''; // Re-enable scrolling if needed
+                    sendHeight(); // Final height update after hiding loader
+                }, 500);
+            }
+
+            // 3. Re-trigger height update when status text changes (for loading phase)
+            // Call the original function
+            originalAppendStatus(msg);
+            setTimeout(sendHeight, 50); 
+        };
+        
+        // --- Initial Setup and DOM Observer ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial state update (Hides the content until Pyodide is ready)
+            document.body.style.overflow = 'hidden';
+            loadingText.textContent = "Loading Pyodide runtime...";
+            
+            // 1. Send height immediately on initialization (sends initial small height)
+            window.addEventListener('load', sendHeight);
+            
+            // 2. Observe DOM changes (Crucial for when Linter populates tables/messages)
+            const observer = new MutationObserver(sendHeight);
+            observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+        });
+    </script>
 </body>
 </html>
