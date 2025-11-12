@@ -66,7 +66,6 @@
         #btn-lint:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
 
         /* --- Status & Loading (Customized to integrate into the page) --- */
-        /* IMPORTANT: This ID must remain for the Pyodide script to find it. */
         #status { display:none; } 
         #status-display { 
             margin-top: 1rem; padding: 0.5rem 1rem; background: #fff3e0; border: 1px solid #ffcc80; 
@@ -76,15 +75,21 @@
         /* --- Linter Output Styling --- */
         #output-wrap { margin-top: 1.5rem; }
         #output { background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; font-size: 0.85rem; }
-        #lint-view, #output-wrap { border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; background: var(--bg-card); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); }
-
+        #lint-view { 
+            border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; 
+            background: var(--bg-card); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); 
+            margin-top: 1.5rem;
+        }
+        /* Style for messages title which is initially hidden */
+        #messages-title { font-size: 1.25rem; font-weight: 600; margin-top: 0.5rem; }
+        
         /* --- LOADING OVERLAY STYLES --- */
         #loading-overlay {
             position: fixed;
             inset: 0; 
             background-color: rgba(255, 255, 255, 0.95);
             z-index: 1000;
-            display: none; 
+            display: flex; 
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -112,7 +117,7 @@
         }
         
         /* Utility to hide the content on load */
-        #content-wrapper { transition: opacity 0.5s ease; opacity: 1; }
+        #content-wrapper { transition: opacity 0.5s ease; opacity: 0; }
 
         /* ANSI colors for Linter output (must exist for renderLintMessages to look right) */
         .ansi-yellow { color: #d97706; }
@@ -158,7 +163,7 @@
         <div style="margin-top: 1.5rem;">
             
             <details id="output-wrap" style="margin-bottom: 1rem;">
-                <summary style="font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 0.5rem 0;">Raw Linter Output</summary>
+                <summary style="font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 0.5rem 0;">Raw Linter Output (JSON)</summary>
                 <pre id="output"></pre>
             </details>
 
@@ -198,7 +203,7 @@
         
         window.appendStatus = function(msg) {
             // 1. Update the visual status text
-            const cleanMsg = msg.replace(/\u001b\[.*?m/g, ''); // Strip ANSI codes
+            const cleanMsg = msg.replace(/\u001b\[.*?m/g, ''); 
             if (statusDisplay) statusDisplay.textContent = cleanMsg;
 
             // 2. Control the full-screen loader state
