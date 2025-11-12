@@ -326,136 +326,136 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
     <script src="https://geritwagner.github.io/search-query/gui/script.js"></script> 
     
-    <script>
-        const DOM = {
-            // UI elements for navigation and display
-            sidebar: document.getElementById('sidebar'),
-            menuToggle: document.getElementById('menu-toggle'),
-            closeMenuBtn: document.getElementById('close-menu'),
-            backdrop: document.getElementById('backdrop'),
-            toolTabs: document.getElementById('tool-tabs'),
-            toolContents: document.querySelectorAll('[data-tool-content]'),
-            platformTargetWrap: document.getElementById('platform-target-wrap'),
-            btnRun: document.getElementById('btn-lint'), // NOTE: Using 'btn-lint' to control the button is now mapped correctly
-            interactiveToolWrap: document.getElementById('interactive-tool-wrap'),
-            launchToolCta: document.getElementById('launch-tool-cta'),
-            toolAreaAnchor: document.getElementById('tool-area'),
+<script>
+    const DOM = {
+        // ... (DOM element definitions remain the same)
+        sidebar: document.getElementById('sidebar'),
+        menuToggle: document.getElementById('menu-toggle'),
+        closeMenuBtn: document.getElementById('close-menu'),
+        backdrop: document.getElementById('backdrop'),
+        toolTabs: document.getElementById('tool-tabs'),
+        toolContents: document.querySelectorAll('[data-tool-content]'),
+        platformTargetWrap: document.getElementById('platform-target-wrap'),
+        btnRun: document.getElementById('btn-lint'), 
+        interactiveToolWrap: document.getElementById('interactive-tool-wrap'),
+        launchToolCta: document.getElementById('launch-tool-cta'),
+        toolAreaAnchor: document.getElementById('tool-area'),
+        
+        // Sidebar links that switch tool view (for mobile UX)
+        sidebarToolLinks: document.querySelectorAll('.sidebar-tool-link'),
+        sidebarNavLinks: document.querySelectorAll('.sidebar-nav-link')
+    };
+
+    let currentTool = 'tokenize'; 
+
+    // --- UI/VISUAL CONTROLS (Only UI changes, NO Pyodide or RUN logic) ---
+
+    function toggleSidebar(forceClose = false) {
+        const isOpen = DOM.sidebar.classList.contains('open');
+        const shouldOpen = forceClose ? false : !isOpen;
+
+        if (shouldOpen) {
+            DOM.sidebar.classList.add('open');
+            DOM.backdrop.style.display = 'block';
+            document.body.style.overflow = 'hidden'; 
+        } else {
+            DOM.sidebar.classList.remove('open');
+            DOM.backdrop.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+
+    function setActiveTool(toolName) {
+        currentTool = toolName;
+
+        // 1. Update Tabs (Visual state in the main output panel)
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            if (btn.dataset.tool === toolName) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // 2. Update Content Visibility
+        DOM.toolContents.forEach(content => {
+            if (content.dataset.toolContent === toolName) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        });
+
+        // 3. Update Platform Target visibility (Translate requires it)
+        if (toolName === 'translate') {
+            DOM.platformTargetWrap.classList.remove('hidden');
+        } else {
+            DOM.platformTargetWrap.classList.add('hidden');
+        }
+
+        // 4. Update Run Button Text (Cosmetic change for user clarity)
+        // This is safe to do, as it only changes the text of the element #btn-lint.
+        DOM.btnRun.textContent = toolName.charAt(0).toUpperCase() + toolName.slice(1);
+        
+        /* 5. VITAL: Notify the Pyodide/Run script about the active tool. 
+           We use a custom element attribute on the button itself. 
+           This is the ONLY way to pass state without modifying the external script.
+        */
+        DOM.btnRun.setAttribute('data-active-tool', toolName);
+    }
+    
+    // --- CTA LAUNCHER ---
+    
+    function launchToolArea() {
+        // 1. Reveal the tool interface
+        DOM.interactiveToolWrap.classList.remove('hidden');
+
+        // 2. Scroll smoothly to the tool anchor
+        if (DOM.toolAreaAnchor) {
+             DOM.toolAreaAnchor.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+    
+    // --- EVENT LISTENERS ---
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Set initial UI state
+        setActiveTool('tokenize'); 
+
+        // 1. CTA Button click: Reveal tool and scroll
+        DOM.launchToolCta.addEventListener('click', launchToolArea);
+
+        // 2. Mobile Menu Toggles
+        DOM.menuToggle.addEventListener('click', () => toggleSidebar());
+        DOM.backdrop.addEventListener('click', () => toggleSidebar(true));
+        DOM.closeMenuBtn.addEventListener('click', () => toggleSidebar(true));
+
+        // 3. Tab click handler (Switches active tool/output panel)
+        DOM.toolTabs.addEventListener('click', (e) => {
+            const tool = e.target.closest('.tab-button')?.dataset.tool;
+            if (tool) {
+                setActiveTool(tool);
+            }
+        });
+
+        // 4. Sidebar Navigation/Tool Switch Handler
+        DOM.sidebar.addEventListener('click', (e) => {
+            const switchLink = e.target.closest('.sidebar-tool-link') || e.target.closest('.sidebar-nav-link');
             
-            // Sidebar links that switch tool view (for mobile UX)
-            sidebarToolLinks: document.querySelectorAll('.sidebar-tool-link'),
-            sidebarNavLinks: document.querySelectorAll('.sidebar-nav-link')
-        };
-
-        let currentTool = 'tokenize'; 
-
-        // --- UI/VISUAL CONTROLS ---
-
-        function toggleSidebar(forceClose = false) {
-            const isOpen = DOM.sidebar.classList.contains('open');
-            const shouldOpen = forceClose ? false : !isOpen;
-
-            if (shouldOpen) {
-                DOM.sidebar.classList.add('open');
-                DOM.backdrop.style.display = 'block';
-                document.body.style.overflow = 'hidden'; 
-            } else {
-                DOM.sidebar.classList.remove('open');
-                DOM.backdrop.style.display = 'none';
-                document.body.style.overflow = '';
-            }
-        }
-
-        function setActiveTool(toolName) {
-            currentTool = toolName;
-
-            // 1. Update Tabs (Visual state in the main output panel)
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                if (btn.dataset.tool === toolName) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-
-            // 2. Update Content Visibility
-            DOM.toolContents.forEach(content => {
-                if (content.dataset.toolContent === toolName) {
-                    content.classList.remove('hidden');
-                } else {
-                    content.classList.add('hidden');
-                }
-            });
-
-            // 3. Update Platform Target visibility (Translate requires it)
-            if (toolName === 'translate') {
-                DOM.platformTargetWrap.classList.remove('hidden');
-            } else {
-                DOM.platformTargetWrap.classList.add('hidden');
-            }
-
-            // 4. Update Run Button Text (Cosmetic change for user feedback)
-            // NOTE: The button ID is fixed to 'btn-lint', but we change the label for user clarity.
-            DOM.btnRun.textContent = toolName.charAt(0).toUpperCase() + toolName.slice(1);
-        }
-        
-        // --- CTA LAUNCHER ---
-        
-        function launchToolArea() {
-            // 1. Reveal the tool interface
-            DOM.interactiveToolWrap.classList.remove('hidden');
-
-            // 2. Scroll smoothly to the tool anchor
-            if (DOM.toolAreaAnchor) {
-                 DOM.toolAreaAnchor.scrollIntoView({ behavior: 'smooth' });
-            }
-        }
-        
-        // --- EVENT LISTENERS ---
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // Set initial UI state
-            setActiveTool('tokenize'); 
-
-            // 1. CTA Button click: Reveal tool and scroll
-            DOM.launchToolCta.addEventListener('click', launchToolArea);
-
-            // 2. Mobile Menu Toggles
-            DOM.menuToggle.addEventListener('click', () => toggleSidebar());
-            DOM.backdrop.addEventListener('click', () => toggleSidebar(true));
-            DOM.closeMenuBtn.addEventListener('click', () => toggleSidebar(true));
-
-            // 3. Tab click handler (Switches active tool/output panel)
-            DOM.toolTabs.addEventListener('click', (e) => {
-                const tool = e.target.closest('.tab-button')?.dataset.tool;
+            if (switchLink) {
+                const tool = switchLink.dataset.toolSwitch;
                 if (tool) {
                     setActiveTool(tool);
+                    DOM.interactiveToolWrap.classList.remove('hidden');
                 }
-            });
+            }
 
-            // 4. Sidebar Navigation/Tool Switch Handler
-            DOM.sidebar.addEventListener('click', (e) => {
-                const switchLink = e.target.closest('.sidebar-tool-link') || e.target.closest('.sidebar-nav-link');
-                
-                if (switchLink) {
-                    // Check if it's a tool link
-                    const tool = switchLink.dataset.toolSwitch;
-                    if (tool) {
-                        setActiveTool(tool);
-                        // Ensure the tool area is visible if a tool is selected from the sidebar
-                        DOM.interactiveToolWrap.classList.remove('hidden');
-                    }
-                }
-
-                // Close sidebar after any link click on mobile
-                if (window.innerWidth < 1024 && e.target.closest('a')) {
-                    // Small delay to allow hash scroll before closing
-                    setTimeout(() => toggleSidebar(true), 200);
-                }
-            });
-            
-            /* NOTE: The click handler for the Pyodide execution button (#btn-lint) 
-               is now fully managed by the external script.js, which is loaded below Pyodide. */
+            // Close sidebar after any link click on mobile
+            if (window.innerWidth < 1024 && e.target.closest('a')) {
+                setTimeout(() => toggleSidebar(true), 200);
+            }
         });
-    </script>
+    });
+</script>
 </body>
 </html>
