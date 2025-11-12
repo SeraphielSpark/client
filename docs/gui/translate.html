@@ -1,52 +1,234 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>search-query translator</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- reuse your existing styles -->
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <title>search-query translator</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    
+    <style>
+        /* --- CSS Variables (Ensure consistency with Host) --- */
+        :root {
+            --primary: #4f46e5;       /* Indigo */
+            --primary-dark: #3f35c5;
+            --bg-card: #ffffff;
+            --border-color: #e5e7eb;  /* Gray-200 */
+            --text-main: #1f2937;     /* Dark Gray */
+            --text-secondary: #6b7280; /* Medium Gray */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; line-height: 1.5; font-family: 'Inter', sans-serif; }
+        body {
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            padding: 1.5rem; 
+            min-height: 100vh;
+            overflow-x: hidden;
+            overflow-y: hidden;
+            position: relative;
+        }
+        
+        /* --- Layout & Typography --- */
+        header h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 0.25rem; }
+        header p { color: var(--text-secondary); margin-top: 0; font-size: 0.95rem; }
+        
+        .main-content-card {
+            margin-top: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Form Elements --- */
+        label { display: block; margin-top: 1.25rem; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.875rem; }
+        textarea, select { 
+            display: block; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); 
+            border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07); 
+            transition: border-color 0.2s, box-shadow 0.2s; color: var(--text-main);
+        }
+        textarea:focus, select:focus { 
+            border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); outline: none; 
+        }
+
+        /* --- Button --- */
+        #btn-translate {
+            width: 100%; padding: 0.75rem 1rem; border: none; border-radius: 0.5rem; 
+            font-weight: 600; color: white; background-color: var(--primary); 
+            cursor: pointer; transition: background-color 0.2s; 
+            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.4);
+            margin-top: 1.5rem;
+        }
+        #btn-translate:hover:not(:disabled) { background-color: var(--primary-dark); }
+        #btn-translate:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+
+        /* --- Status & Loading (Customized to integrate into the page) --- */
+        #status { display:none; } 
+        
+        /* --- Linter Output Styling (Targets output elements required by translate.js) --- */
+        #result-title, #messages-title { font-size: 1.25rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+        #result { 
+            background-color: #f3f4f6; padding: 1rem; border: 1px solid var(--border-color); 
+            border-radius: 0.5rem; font-size: 0.9rem; white-space: pre-wrap; word-wrap: break-word; 
+        }
+        #messages { 
+            padding: 1rem; border: 1px solid var(--border-color); border-radius: 0.5rem; 
+            background: #fcfcfc; font-size: 0.85rem; color: var(--text-main);
+        }
+
+        /* --- LOADING OVERLAY STYLES --- */
+        #loading-overlay {
+            position: fixed;
+            inset: 0; 
+            background-color: rgba(255, 255, 255, 0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+            opacity: 1;
+        }
+        .loader {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        #loading-text {
+            font-size: 1.1rem;
+            color: var(--text-main);
+            font-weight: 500;
+            text-align: center;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #content-wrapper { transition: opacity 0.5s ease; opacity: 0; }
+        
+    </style>
 </head>
 <body>
-  <header>
-    <h1>search-query translator</h1>
-    <p>Translate a database/search-platform query into another platform using the <code>search-query</code> package (running in Pyodide).</p>
-  </header>
 
-  <div id="status">Loading Pyodide…</div>
+    <div id="loading-overlay">
+        <div class="loader"></div>
+        <div id="loading-text">Initializing Pyodide...</div>
+    </div>
+    
+    <div id="content-wrapper">
+        <header>
+            <h1>search-query translator</h1>
+            <p>Translate a database/search-platform query into another platform using the <code>search-query</code> package (running in Pyodide).</p>
+        </header>
 
-  <label for="query">Query</label>
-  <textarea id="query" rows="6">(TI=(platform* OR "digital work") AND PY=2020-2025)</textarea>
+        <div id="status">Loading Pyodide…</div> 
 
-  <label for="platform-source">Source platform</label>
-  <select id="platform-source">
-    <option value="wos">wos</option>
-    <option value="pubmed">pubmed</option>
-    <option value="ebscohost">ebscohost</option>
-    <option value="scopus">scopus</option>
-  </select>
+        <div class="main-content-card">
+            <label for="query">Query</label>
+            <textarea id="query" rows="6">(TI=(platform* OR "digital work") AND PY=2020-2025)</textarea>
 
-  <label for="platform-target">Target platform</label>
-  <select id="platform-target">
-    <option value="wos">wos</option>
-    <option value="pubmed" selected>pubmed</option>
-    <option value="ebscohost">ebscohost</option>
-    <option value="scopus">scopus</option>
-  </select>
+            <label for="platform-source">Source platform</label>
+            <select id="platform-source">
+                <option value="wos">WoS</option>
+                <option value="pubmed">PubMed</option>
+                <option value="ebscohost">EBSCOhost</option>
+                <option value="scopus">Scopus</option>
+            </select>
 
-  <div class="row" style="margin-top:1rem;">
-    <button id="btn-translate" disabled>Translate</button>
-  </div>
+            <label for="platform-target">Target platform</label>
+            <select id="platform-target">
+                <option value="wos">WoS</option>
+                <option value="pubmed" selected>PubMed</option>
+                <option value="ebscohost">EBSCOhost</option>
+                <option value="scopus">Scopus</option>
+            </select>
 
-  <h2 id="result-title" style="display:none; margin-top:1.5rem;">Translated query</h2>
-  <pre id="result" style="display:none;"></pre>
+            <div class="row">
+                <button id="btn-translate" disabled>Translate</button>
+            </div>
+        </div>
 
-  <h2 id="messages-title" style="display:none; margin-top:1.5rem;">Messages</h2>
-  <div id="messages" style="display:none;"></div>
+        <div style="margin-top: 1.5rem;">
+            <h2 id="result-title" style="display:none;">Translated query</h2>
+            <pre id="result" style="display:none;"></pre>
 
-  <!-- Pyodide runtime -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
-  <!-- your logic (the file I gave you) -->
-  <script src="translate.js"></script>
+            <h2 id="messages-title" style="display:none;">Messages</h2>
+            <div id="messages" style="display:none;"></div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+    <script src="translate.js"></script>
+    
+    <script>
+        // NOTE: Base path check should match the domain of the host page
+        const PARENT_ORIGIN = window.location.origin; 
+        
+        const loader = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const contentWrapper = document.getElementById('content-wrapper');
+
+        // --- Cross-Origin Height Communication ---
+        function sendHeight() {
+            const height = document.body.scrollHeight;
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'setHeight',
+                    height: height
+                }, PARENT_ORIGIN);
+            }
+        }
+        
+        // --- Pyodide Status Hook and Loader Control ---
+        
+        // Save original appendStatus function from script.js (if it was defined globally)
+        const originalAppendStatus = window.appendStatus || function(msg) { 
+            console.log("Status Hook (Original):", msg); 
+        };
+        
+        window.appendStatus = function(msg) {
+            // 1. Update the visual status text
+            loadingText.textContent = msg.replace(/\u001b\[.*?m/g, ''); // Strip ANSI codes
+            
+            // 2. Check if loading is complete
+            if (msg.includes('Done') || msg.includes('ready') || msg.includes('Ready')) {
+                // Fade out the loader and show content
+                loader.style.opacity = '0';
+                contentWrapper.style.opacity = '1';
+
+                // Re-enable interactions and hide the loader after transition
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    document.body.style.overflow = ''; // Re-enable scrolling if needed
+                    sendHeight(); // Final height update after hiding loader
+                }, 500);
+            }
+
+            // 3. Call the original function and re-trigger height update 
+            originalAppendStatus(msg);
+            setTimeout(sendHeight, 50); 
+        };
+        
+        // --- Initial Setup and DOM Observer ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial state setup
+            document.body.style.overflow = 'hidden';
+            loadingText.textContent = "Loading Pyodide runtime...";
+            
+            // 1. Send height immediately on initialization
+            window.addEventListener('load', sendHeight);
+            
+            // 2. Observe DOM changes (Crucial for when the output dynamically appears)
+            const observer = new MutationObserver(sendHeight);
+            observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+        });
+    </script>
 </body>
 </html>
