@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <title>search-query Tokenizer</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    
+
     <!-- Font Awesome for icons (if used in the original style.css or tokenizer.js) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-    
+
     <!-- NOTE: If style.css exists, it should be linked here -->
-    <link rel="stylesheet" href="style.css" /> 
-    
+    <link rel="stylesheet" href="style.css" />
+
     <style>
         /* --- CSS Variables (Ensure consistency with Host) --- */
         :root {
@@ -28,15 +28,15 @@
         body {
             background-color: var(--bg-card); /* Ensure white background inside frame */
             color: var(--text-main);
-            padding: 1.5rem; 
+            padding: 1.5rem;
             overflow-x: hidden;
             /* Allow vertical scrolling only if the content exceeds the initial height before resizing */
         }
-        
+
         /* --- Layout & Typography --- */
         header h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 0.25rem; }
         header p { color: var(--text-secondary); margin-top: 0; font-size: 0.95rem; }
-        
+
         .main-content-card {
             margin-top: 1.5rem;
             background: var(--bg-card);
@@ -48,20 +48,20 @@
 
         /* --- Form Elements --- */
         label { display: block; margin-top: 1.25rem; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.875rem; }
-        textarea, select { 
-            display: block; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); 
-            border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07); 
+        textarea, select {
+            display: block; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color);
+            border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07);
             transition: border-color 0.2s, box-shadow 0.2s; color: var(--text-main);
         }
-        textarea:focus, select:focus { 
-            border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); outline: none; 
+        textarea:focus, select:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); outline: none;
         }
 
         /* --- Button --- */
         #btn-tokenize {
-            width: 100%; padding: 0.75rem 1rem; border: none; border-radius: 0.5rem; 
-            font-weight: 600; color: white; background-color: var(--primary); 
-            cursor: pointer; transition: background-color 0.2s; 
+            width: 100%; padding: 0.75rem 1rem; border: none; border-radius: 0.5rem;
+            font-weight: 600; color: white; background-color: var(--primary);
+            cursor: pointer; transition: background-color 0.2s;
             box-shadow: 0 2px 4px rgba(79, 70, 229, 0.4);
             margin-top: 1.5rem;
         }
@@ -69,30 +69,30 @@
         #btn-tokenize:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
 
         /* --- Status & Loading (Customized to integrate into the page) --- */
-        #status { 
-            margin-top: 1rem; padding: 0.5rem 1rem; background: #fff3e0; border: 1px solid #ffcc80; 
-            border-radius: 0.375rem; font-size: 0.875rem; color: #a55a00; font-weight: 500; 
+        #status {
+            margin-top: 1rem; padding: 0.5rem 1rem; background: #fff3e0; border: 1px solid #ffcc80;
+            border-radius: 0.375rem; font-size: 0.875rem; color: #a55a00; font-weight: 500;
         }
 
         /* --- Output Table Styles (Overrides original style block) --- */
         #tokens-table {
-            width: 100%; border-collapse: collapse; margin-top: 1rem; background: var(--bg-card); 
-            border: 1px solid var(--border-color); border-radius: 0.5rem; overflow: hidden; 
+            width: 100%; border-collapse: collapse; margin-top: 1rem; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: 0.5rem; overflow: hidden;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
-        #tokens-table th, #tokens-table td { 
-            padding: 0.75rem; border-bottom: 1px solid #f3f4f6; font-size: 0.9rem; 
+        #tokens-table th, #tokens-table td {
+            padding: 0.75rem; border-bottom: 1px solid #f3f4f6; font-size: 0.9rem;
         }
         #tokens-table th { text-align: left; background: #f3f4f6; font-weight: 700; color: #374151; }
         #tokens-table tr:last-child td { border-bottom: none; }
 
         /* Raw JSON Output */
-        #output { 
-            background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; font-size: 0.85rem; 
-            white-space: pre-wrap; word-wrap: break-word; overflow-x: auto; 
+        #output {
+            background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; font-size: 0.85rem;
+            white-space: pre-wrap; word-wrap: break-word; overflow-x: auto;
             margin-top: 0.5rem;
         }
-        
+
     </style>
 </head>
 <body>
@@ -103,8 +103,8 @@
     </header>
 
     <!-- CRITICAL ID: status -->
-    <div id="status">Loading Pyodide…</div> 
-    
+    <div id="status">Loading Pyodide…</div>
+
     <div class="main-content-card">
 
         <label for="query">Query</label>
@@ -128,7 +128,7 @@
 
     <!-- Output Section -->
     <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
-        
+
         <details style="margin-top: 0;">
             <summary style="font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 0.5rem 0;">Raw JSON</summary>
             <!-- CRITICAL ID: output (Required for raw output) -->
@@ -152,15 +152,15 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
     <!-- Your Logic -->
     <script src="tokenize.js"></script>
-    
+
     <!-- VITAL: Cross-Origin Height Communication Script -->
     <script>
         // NOTE: This must match the parent window's expected domain for security reasons.
-        const PARENT_ORIGIN = window.location.origin; 
-        
+        const PARENT_ORIGIN = window.location.origin;
+
         function sendHeight() {
             // Calculate the height of the entire content body
-            // We use document.body.scrollHeight to ensure even hidden content is considered if necessary, 
+            // We use document.body.scrollHeight to ensure even hidden content is considered if necessary,
             // but primarily captures the space of displayed elements.
             const height = document.body.scrollHeight;
 
@@ -175,20 +175,20 @@
 
         // 1. Send height immediately on initialization
         window.addEventListener('load', sendHeight);
-        
+
         // 2. Observe DOM changes to resize the iframe after content is dynamically rendered (e.g., table appears)
         const observer = new MutationObserver(sendHeight);
-        
+
         // Configuration: Watch for attributes (style changes), child list changes, and subtree changes
         observer.observe(document.body, { attributes: true, childList: true, subtree: true });
 
-        // Optional: Override original appendStatus if it exists, to re-trigger height recalculation 
+        // Optional: Override original appendStatus if it exists, to re-trigger height recalculation
         // after the Pyodide status updates (which changes the DOM).
         const originalAppendStatus = window.appendStatus || function(msg) { console.log("Status:", msg); };
         window.appendStatus = function(msg) {
             originalAppendStatus(msg);
             // Wait a moment for the browser to render the new status text before calculating height
-            setTimeout(sendHeight, 50); 
+            setTimeout(sendHeight, 50);
         };
     </script>
 </body>
